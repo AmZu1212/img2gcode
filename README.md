@@ -2,7 +2,7 @@
 
 Thanks to [schollz](https://github.com/schollz) for the original project. If this tool helps you, please star the original repo here: [schollz/img2gcode](https://github.com/schollz/img2gcode).
 
-This repository is a fork of the original work, adapted for a custom pen plotter. The main changes in this fork are focused on pen-plotter-friendly G-code output, 190x190 mm bed limits, cleaner run folders, and better handling of line quality versus file size.
+This repository is a fork of the original work, adapted for a custom pen plotter.
 
 ## What it does
 
@@ -16,7 +16,7 @@ This fork outputs G-code in a pen-plotter style:
 
 - `Z0` = pen touching paper
 - `Z5` = pen lifted for travel
-- `F5400` on XY movement lines
+- `F5400` on XY movement lines (Feed rate is used to set the plotter's movement speed)
 - `F500` on pen up/down moves
 - output automatically fit inside a `190 x 190 mm` drawing area
 
