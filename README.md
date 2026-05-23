@@ -1,113 +1,87 @@
-# img2gcode.py
+# img2gcode
 
-This script, `img2gcode.py` will take any image and convert it into a nice line drawing with GCode coordinates. You can take a scanned drawing, or black and white digital sketch like below and convert it into lines to be plotted.
+Thanks to [schollz](https://github.com/schollz) for the original project. If this tool helps you, please star the original repo here: [schollz/img2gcode](https://github.com/schollz/img2gcode).
 
-<p align="center">
-<img src=".github/sun.jpg" height=300>
-</p>
+This repository is a fork of the original work, adapted for a custom pen plotter. The main changes in this fork are focused on pen-plotter-friendly G-code output, 190x190 mm bed limits, cleaner run folders, and better handling of line quality versus file size.
 
-You can specify the dimensions of the underlying plotter. For the example below, generated from the image above, the dimensions for [the Line-us drawing arm](https://github.com/Line-us/Line-us-Programming/blob/master/Documentation/LineUsDrawingArea.pdf)).
+## What it does
 
-<p align="center">
-<img src=".github/output.gif" height=300>
-</p>
+`img2gcode.py` converts black-and-white line art into:
 
-## Install
+- `image.gcode` for a pen plotter
+- `final.svg` for vector preview
+- `final.png` for raster preview
 
-You need the following requirements:
+This fork outputs G-code in a pen-plotter style:
 
-- python (3.6+)
-- potrace
-- ffmpeg
-- imagemagick
-- autotrace
+- `Z0` = pen touching paper
+- `Z5` = pen lifted for travel
+- `F5400` on XY movement lines
+- `F500` on pen up/down moves
+- output automatically fit inside a `190 x 190 mm` drawing area
 
+## Requirements
 
-### Windows 
+This fork is currently set up and tested for Windows.
 
-On Windows you can install with [scoop](https://scoop.sh/). Note that you must use `python37` to install Python because one of the libraries (simplification) on Windows is incompatible with Python3.8.
+You need:
 
-	scoop install potrace ffmpeg imagemagick python37
+- Python 3
+- ImageMagick
+- `potrace`
 
-Once installed, you can install the required Python packages with pip:
+Python packages:
 
-	python37 -m pip install click loguru numpy simplification svgpathtools svgwrite tqdm pillow svg.path
-
-You also need to download `autotrace` from [here](https://github.com/scottvr/autotrace-win64-binaries/tree/master/bin) and put it in your path.
-
-### Linux 
-
-On Linux you can install with apt:
-	
-	sudo apt install potrace ffmpeg imagemagick python3
-
-Once installed, you can install the required Python packages with pip:
-
-	python3 -m pip install click loguru numpy simplification svgpathtools svgwrite tqdm pillow svg.path
-
-You also need to build `autotrace` since newer distributions of Ubuntu don't include it:
-
-
-```bash
-sudo apt update
-sudo apt install intltool imagemagick libmagickcore-dev pstoedit libpstoedit-dev autopoint
-
-git clone https://github.com/autotrace/autotrace.git
-cd autotrace
-
-./autogen.sh
-LD_LIBRARY_PATH=/usr/local/lib ./configure --prefix=/usr
-make
-sudo make install
+```powershell
+python -m pip install click loguru numpy simplification svgpathtools svgwrite tqdm pillow svg.path
 ```
 
-## Run
+## Usage
 
-You can just download and run the script directly:
+Basic run:
 
-	wget https://raw.githubusercontent.com/schollz/img2gcode/master/img2gcode.py
-	python3 img2gcode.py --file image.jpg --animate --simplify 2 --threshold 80
-
-Try changing `--simplify` from 1 to 10 to decrease the number of lines. You can also increase `--threshold` if you aren't getting the whole picture. You can also add an option `--centerline` to get a better skeleton.
-
-After it runs it should create a folder like `image_20260521_200500`. In that folder there are a number of files:
-
-- `image.gcode`: contains the final GCode coordinates
-- `final.svg` / `final.png`: contains the final image after simplification and transforming
-- `animation.gif`: contains the animation showing the drawing process
-- `potrace.svg`: shows the untransformed SVG after skeleton
-- `skeleton*`: shows the skeleton transformations from the image (if `--centerline` was added)
-- `thresholded.png`: shows how the image looks after initial thresholding
-
-## Notes
-
-### Creating text with imagemagick
-
-(Keep less <= 16 characters)
-
-```bash
-convert -size 2000x1125 xc:white white.png
-convert white.png -fill black -pointsize 100 -gravity northwest -annotate +50+50 "Some cool message\non the left side\n\n:)\n" -annotate +1050+300 "Some cool message\non the right side" test.png
-python3 img2gcode.py --simplify 5 --threshold 80 --file test.png --animate --centerline
-python3 img2gcode.py --autotrace --file test.png  --animate --threshold 80 --simplify 1
+```powershell
+python img2gcode.py --file "Images\your_image.png" --threshold 80 --no-minimize
 ```
 
-Using autotrace:
+Each run creates a timestamped output folder inside `runs/`, for example:
 
-```bash
-convert -size 2000x1125 xc:white white.png
-convert white.png -fill black -pointsize 100 -gravity northwest -annotate +50+50 "Some cool message\non the left side\n\n:)\n" -annotate +1050+300 "Some cool message\non the right side" test.png
-convert test.png -rotate 90 test2.tga
-autotrace -output-file test2.svg --output-format svg --centerline test2.tga
-cat test2.svg | grep "svg\|000000\|xml" > test3.svg
-python3 img2gcode.py --autotrace --file test3.svg
+```text
+runs/girl_smiling_test_20260523_104500
 ```
 
-Using autotrace
+Inside that folder:
 
-```
-convert c2.jpg -resize 2000x1125 -background White -gravity center -extent 2000x1125 -threshold 90% -rotate 90 test2.tga
-autotrace -output-file test2.svg --output-format svg --centerline test2.tga
+- `image.gcode` is the final plotter output
+- `final.svg` is the vector preview
+- `final.png` is the rendered preview
+- `thresholded.png` shows the thresholded source image
+- `potrace.svg` shows the traced intermediate result
+
+## Useful options
+
+- `--threshold 80`
+  Controls black/white separation during tracing.
+
+- `--simplify 0.25`
+  Reduces point count while keeping shape quality.
+
+- `--min-segment-length 0.2`
+  Removes tiny segments that bloat the G-code.
+
+- `--bezier-segments 12`
+  Controls curve sampling detail.
+
+- `--no-minimize`
+  Skips path travel optimization.
+
+- `--minx 0 --maxx 190 --miny 0 --maxy 190`
+  Drawing bed limits. Default is already `190 x 190`.
+
+## Example
+
+```powershell
+python img2gcode.py --file "Images\girl smiling test.png" --threshold 80 --no-minimize
 ```
 
 ## License
