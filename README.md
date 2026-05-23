@@ -70,9 +70,9 @@ You can just download and run the script directly:
 
 Try changing `--simplify` from 1 to 10 to decrease the number of lines. You can also increase `--threshold` if you aren't getting the whole picture. You can also add an option `--centerline` to get a better skeleton.
 
-After it runs it should create a folder `image.jpg.drawbot`. In that folder there are a number of files:
+After it runs it should create a folder like `image_20260521_200500`. In that folder there are a number of files:
 
-- `image.gc`: contains the final GCode coordinates
+- `image.gcode`: contains the final GCode coordinates
 - `final.svg` / `final.png`: contains the final image after simplification and transforming
 - `animation.gif`: contains the animation showing the drawing process
 - `potrace.svg`: shows the untransformed SVG after skeleton
