@@ -112,9 +112,13 @@ env.bak/
 venv.bak/
 
 # Local test inputs and generated outputs
-Images/
-runs/
-known good gcode results/
+source images/
+gcode outputs/
+img2gcode/history/
+img2gcode/known good gcode results/
+img2gpt/gpt input crops/
+img2gpt/coloring book outputs/
+img2gpt/history/
 
 # Spyder project settings
 .spyderproject
@@ -133,3 +137,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+GPT_API_Key.txt

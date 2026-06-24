@@ -674,7 +674,7 @@ def animateProcess(new_paths, bounds, fname="out.gif"):
 
 @click.command()
 @click.option("--file", prompt="image in?", help="svg to process")
-@click.option("--folder", default="runs", help="folder to output into")
+@click.option("--folder", default="history", help="folder to output into")
 @click.option("--animate/--no-animate", default=False)
 @click.option("--overwrite/--no-overwrite", default=True)
 @click.option("--skeleton/--no-skeleton", default=False)
@@ -736,12 +736,24 @@ def run(
     except:
         pass
 
-    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(script_dir)
+    if not os.path.isabs(folder):
+        folder = os.path.join(script_dir, folder)
+    run_timestamp = datetime.now().strftime("%H-%M_on_%Y-%m-%d")
     file_stem = os.path.splitext(ntpath.basename(file))[0]
     safe_stem = "_".join(file_stem.split())
     foldername = os.path.join(folder, f"{safe_stem}_{run_timestamp}")
+    gcode_outputs_folder = os.path.join(repo_root, "gcode outputs")
+    gcode_output_path = os.path.join(
+        gcode_outputs_folder, f"{safe_stem}_{run_timestamp}.gcode"
+    )
     try:
         os.makedirs(foldername, exist_ok=True)
+    except:
+        pass
+    try:
+        os.makedirs(gcode_outputs_folder, exist_ok=True)
     except:
         pass
 
@@ -902,6 +914,9 @@ def run(
             [imconvert, "-density", png_density, "1.gif", "-rotate", "270", "animation.gif"]
         )
     # os.remove("1.gif")
+
+    copyfile("image.gcode", gcode_output_path)
+    log.info("copied gcode output to {}", gcode_output_path)
 
 
 if __name__ == "__main__":

@@ -41,13 +41,19 @@ python -m pip install click loguru numpy simplification svgpathtools svgwrite tq
 Basic run:
 
 ```powershell
-python img2gcode.py --file "Images\your_image.png" --threshold 80 --no-minimize
+python img2gcode\img2gcode.py --file "source images\your_image.png" --threshold 80 --no-minimize
 ```
 
-Each run creates a timestamped output folder inside `runs/`, for example:
+Each run creates a timestamped output folder inside `img2gcode/history/`, for example:
 
 ```text
-runs/girl_smiling_test_20260523_104500
+img2gcode/history/girl_smiling_test_18-16_on_2026-06-24
+```
+
+It also writes a plotter-ready copy into `gcode outputs/`:
+
+```text
+gcode outputs/girl_smiling_test_18-16_on_2026-06-24.gcode
 ```
 
 Inside that folder:
@@ -81,7 +87,7 @@ Inside that folder:
 ## Example
 
 ```powershell
-python img2gcode.py --file "Images\girl smiling test.png" --threshold 80 --no-minimize
+python img2gcode\img2gcode.py --file "source images\girl smiling test.png" --threshold 80 --no-minimize
 ```
 
 ## License
