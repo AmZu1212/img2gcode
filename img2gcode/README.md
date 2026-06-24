@@ -19,6 +19,7 @@ This fork outputs G-code in a pen-plotter style:
 - `F5400` on XY movement lines (Feed rate is used to set the plotter's movement speed)
 - `F500` on pen up/down moves
 - output automatically fit inside a `190 x 190 mm` drawing area
+- output orientation corrected so the plotted result matches the source image
 
 ## Requirements
 

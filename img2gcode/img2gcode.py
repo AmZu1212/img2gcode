@@ -204,6 +204,49 @@ def run_command(args):
     subprocess.run([str(arg) for arg in args], check=True)
 
 
+def find_potrace():
+    potrace = which("potrace")
+    if potrace:
+        return potrace
+
+    bundled = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        ".tools",
+        "potrace",
+        "potrace-1.16.win64",
+        "potrace.exe",
+    )
+    if os.path.exists(bundled):
+        return bundled
+
+    raise click.ClickException("potrace was not found on PATH or in img2gcode/.tools")
+
+
+def preprocess_with_pil(file, width, height, threshold):
+    with Image.open(file) as img:
+        img = img.convert("RGBA")
+        background = Image.new("RGBA", img.size, "WHITE")
+        background.alpha_composite(img)
+        img = background.convert("L")
+
+        scale = min(width / img.width, height / img.height)
+        resized_size = (
+            max(1, int(round(img.width * scale))),
+            max(1, int(round(img.height * scale))),
+        )
+        img = img.resize(resized_size, Image.Resampling.LANCZOS)
+
+        canvas = Image.new("L", (width, height), 255)
+        offset = ((width - resized_size[0]) // 2, (height - resized_size[1]) // 2)
+        canvas.paste(img, offset)
+        cutoff = int(round(255 * threshold / 100.0))
+        thresholded = canvas.point(lambda px: 0 if px <= cutoff else 255, mode="1")
+        thresholded.convert("L").save("thresholded.png")
+        thresholded.transpose(Image.Transpose.ROTATE_90).transpose(
+            Image.Transpose.FLIP_LEFT_RIGHT
+        ).save("thresholded.bmp")
+
+
 def filter_short_segments(coords, min_segment_length=0.0):
     if len(coords) <= 2 or min_segment_length <= 0:
         return coords
@@ -490,6 +533,27 @@ def coords_to_svg(
     return new_new_paths
 
 
+def mirror_point_horizontally(point, drawing_area):
+    minx, maxx, _, _ = drawing_area
+    mirrored_x = minx + maxx - np.real(point)
+    return complex(mirrored_x, np.imag(point))
+
+
+def mirror_paths_horizontally(paths, drawing_area):
+    mirrored_paths = []
+    for path in paths:
+        mirrored_path = []
+        for ele in path:
+            mirrored_path.append(
+                Line(
+                    mirror_point_horizontally(ele.start, drawing_area),
+                    mirror_point_horizontally(ele.end, drawing_area),
+                )
+            )
+        mirrored_paths.append(mirrored_path)
+    return mirrored_paths
+
+
 def processAutotraceSVG(
     fnamein,
     fnameout,
@@ -563,6 +627,7 @@ def processAutotraceSVG(
         minPathLength=minPathLength,
         min_segment_length=min_segment_length,
     )
+    new_new_paths = mirror_paths_horizontally(new_new_paths, drawing_area)
     write_paths_to_svg("final.svg", new_new_paths, drawing_area)
     write_paths_to_gcode("image.gcode", new_new_paths, drawing_area)
     return new_new_paths
@@ -614,6 +679,7 @@ def processSVG(
 
     log.debug(f"have {num_coords} coordinates")
     log.debug(f"have {num_coords_simplified} coordinates after simplifying")
+    new_new_paths = mirror_paths_horizontally(new_new_paths, drawing_area)
     write_paths_to_svg(fnameout, new_new_paths, drawing_area)
 
     log.debug("wrote image to {}", fnameout)
@@ -699,6 +765,7 @@ def animateProcess(new_paths, bounds, fname="out.gif"):
 @click.option("--raster-scale", default=10, help="pixels per output unit for tracing", type=float)
 @click.option("--png-density", default=600, help="density used when rendering final PNG", type=int)
 @click.option("--threshold", default=60, help="percent threshold (0-100)")
+@click.option("--gcode-output", default=None, help="explicit final gcode output path")
 def run(
     folder,
     autotrace,
@@ -722,38 +789,53 @@ def run(
     bezier_segments,
     raster_scale,
     png_density,
+    gcode_output,
 ):
     random.seed(seed)
-    imconvert = "convert"
+    imconvert = which("convert")
     if os.name == "nt":
         if which("magick"):
             imconvert = "magick"
         elif which("imconvert"):
             imconvert = "imconvert"
+        else:
+            imconvert = None
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(script_dir)
+    if not os.path.isabs(folder):
+        folder = os.path.join(script_dir, folder)
 
     try:
         os.makedirs(folder, exist_ok=True)
     except:
         pass
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.dirname(script_dir)
-    if not os.path.isabs(folder):
-        folder = os.path.join(script_dir, folder)
     run_timestamp = datetime.now().strftime("%H-%M_on_%Y-%m-%d")
     file_stem = os.path.splitext(ntpath.basename(file))[0]
     safe_stem = "_".join(file_stem.split())
     foldername = os.path.join(folder, f"{safe_stem}_{run_timestamp}")
     gcode_outputs_folder = os.path.join(repo_root, "gcode outputs")
-    gcode_output_path = os.path.join(
-        gcode_outputs_folder, f"{safe_stem}_{run_timestamp}.gcode"
-    )
+    if gcode_output:
+        gcode_output_path = (
+            gcode_output
+            if os.path.isabs(gcode_output)
+            else os.path.join(repo_root, gcode_output)
+        )
+    else:
+        gcode_output_path = os.path.join(
+            gcode_outputs_folder, f"{safe_stem}_{run_timestamp}.gcode"
+        )
     try:
         os.makedirs(foldername, exist_ok=True)
     except:
         pass
     try:
         os.makedirs(gcode_outputs_folder, exist_ok=True)
+    except:
+        pass
+    try:
+        os.makedirs(os.path.dirname(gcode_output_path), exist_ok=True)
     except:
         pass
 
@@ -770,6 +852,8 @@ def run(
     new_new_paths_flat = []
     bounds = [minx, maxx, miny, maxy]
     if autotrace:
+        if not imconvert:
+            raise click.ClickException("autotrace mode requires ImageMagick")
         log.debug("autotrace!")
         run_command(
             [
@@ -816,6 +900,8 @@ def run(
         )
     elif not os.path.exists("potrace.svg") or overwrite:
         if skeleton:
+            if not imconvert:
+                raise click.ClickException("skeleton mode requires ImageMagick")
             run_command(
                 [
                     imconvert,
@@ -855,32 +941,51 @@ def run(
             run_command([imconvert, "skeleton_border.png", "-flip", "skeleton_border_flip.bmp"])
 
             run_command(
-                ["potrace", "-b", "svg", "-o", "potrace.svg", "skeleton_border_flip.bmp"]
-            )
-        else:
-            run_command(
                 [
-                    imconvert,
-                    file,
-                    "-resize",
-                    f"{width}x{height}",
-                    "-background",
-                    "White",
-                    "-gravity",
-                    "center",
-                    "-extent",
-                    f"{width}x{height}",
-                    "-threshold",
-                    f"{threshold}%",
-                    "thresholded.png",
+                    find_potrace(),
+                    "-b",
+                    "svg",
+                    "-o",
+                    "potrace.svg",
+                    "skeleton_border_flip.bmp",
                 ]
             )
+        else:
+            if imconvert:
+                run_command(
+                    [
+                        imconvert,
+                        file,
+                        "-resize",
+                        f"{width}x{height}",
+                        "-background",
+                        "White",
+                        "-gravity",
+                        "center",
+                        "-extent",
+                        f"{width}x{height}",
+                        "-threshold",
+                        f"{threshold}%",
+                        "thresholded.png",
+                    ]
+                )
+
+                run_command(
+                    [
+                        imconvert,
+                        "thresholded.png",
+                        "-rotate",
+                        "90",
+                        "-flip",
+                        "thresholded.bmp",
+                    ]
+                )
+            else:
+                preprocess_with_pil(file, width, height, threshold)
 
             run_command(
-                [imconvert, "thresholded.png", "-rotate", "90", "-flip", "thresholded.bmp"]
+                [find_potrace(), "-b", "svg", "-o", "potrace.svg", "-n", "thresholded.bmp"]
             )
-
-            run_command(["potrace", "-b", "svg", "-o", "potrace.svg", "-n", "thresholded.bmp"])
             os.remove("thresholded.bmp")
 
         new_new_paths_flat = processSVG(
@@ -902,9 +1007,12 @@ def run(
         fmt_coord(final_bounds[3]),
     )
 
-    run_command(
-        [imconvert, "-density", png_density, "final.svg", "-rotate", "270", "final.png"]
-    )
+    if imconvert:
+        run_command(
+            [imconvert, "-density", png_density, "final.svg", "-rotate", "270", "final.png"]
+        )
+    else:
+        log.warning("ImageMagick not found; skipping final.png render")
 
     animatefile = ""
     if animate:
