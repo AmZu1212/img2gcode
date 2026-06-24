@@ -1,0 +1,9 @@
+Transform the provided portrait into a clean coloring-book style line drawing.
+
+Keep only the main person from the portrait. Remove the background completely and replace it with a plain solid white background.
+
+Draw the person using only clean black outline strokes on white. Use simple, continuous, traceable lines. Avoid shading, gradients, gray tones, textures, filled black areas, hatching, crosshatching, or heavy shadows.
+
+Preserve the person's recognizable facial features, hair shape, clothing outline, and general pose, but simplify details so the result looks like a printable coloring book page.
+
+The final image should be high contrast, black lines on a pure white background, with no color and no full black filled regions.
