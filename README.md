@@ -106,13 +106,13 @@ G-code generation:
 Run GPT conversion manually:
 
 ```powershell
-python img2gpt\img2gpt.py --input "source images\nir test.png"
+python img2gpt\img2gpt.py --input "source images\test.png"
 ```
 
 Run G-code conversion manually:
 
 ```powershell
-python img2gcode\img2gcode.py --file "img2gpt\history\nir_test_coloring.png" --threshold 80 --no-minimize
+python img2gcode\img2gcode.py --file "img2gpt\history\test_coloring.png" --threshold 80 --no-minimize
 ```
 
 ## License
